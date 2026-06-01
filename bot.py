@@ -16,7 +16,6 @@ TOKEN = "8954404679:AAGcHlXHntPNQuz3Y0-taekMrMJlGvBWQ_g"
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# Кетма-кет сўраладиган маълумотлар занжири
 class StudentForm(StatesGroup):
     waiting_for_firstname = State()
     waiting_for_lastname = State()
@@ -60,11 +59,13 @@ async def cmd_start(message: Message, state: FSMContext):
             reply_markup=get_edit_keyboard()
         )
     else:
+        # Энг биринчи огоҳлантириш матни шу ерда
         await message.answer(
-            "👋 Ассалому алайкум! Ўқувчилар маълумотлар базаси ботига хуш келибсиз.\n"
-            "Илтимос, сўралаётган маълумотларни тўғри ва аниқ киритинг.\n\n"
-            "Бўлим: Ўқувчининг ИСМИНИ киритинг:",
-            reply_markup=get_cancel_keyboard()
+            "⚠️ **ДИҚҚАТ! ХАТОР СЎРОВНОМА!**\n\n"
+            "Алоҳида илтимос: Барча маълумотларни **Ўқувчининг ҲУЖЖАТИ (Паспорт ёки Туғилганлик ҳақида гувоҳнома) АСЛИДАГЕДЕК**, ҳеч қандай хатосиз ва қисқартиришсиз ёзишингизни сўраймиз!\n\n"
+            "📋 Бўлим: Ўқувчининг ИСМИНИ киритинг (ҳужжатдагидек):",
+            reply_markup=get_cancel_keyboard(),
+            parse_mode="Markdown"
         )
         await state.set_state(StudentForm.waiting_for_firstname)
 
@@ -80,7 +81,11 @@ async def cancel_fill(message: Message, state: FSMContext):
 
 @dp.message(F.text == "📝 Маълумотларни таҳрирлаш")
 async def edit_profile(message: Message, state: FSMContext):
-    await message.answer("Қайта рўйхатдан ўтиш бошланди.\n\nЎқувчининг ИСМИНИ киритинг:", reply_markup=get_cancel_keyboard())
+    await message.answer(
+        "⚠️ Қайта рўйхатдан ўтиш бошланди. Илтимос, маълумотларни ҳужжат аслидек киритинг!\n\n"
+        "Ўқувчининг ИСМИНИ киритинг:", 
+        reply_markup=get_cancel_keyboard()
+    )
     await state.set_state(StudentForm.waiting_for_firstname)
 
 @dp.message(F.text == "📋 Менинг маълумотларим")
@@ -102,51 +107,52 @@ async def show_my_data(message: Message):
         )
         await message.answer(info, parse_mode="Markdown", reply_markup=get_edit_keyboard())
 
-# --- АНКЕТА САВОЛЛАРИ КЕТМА-КЕТЛИГИ ---
+# --- САВОЛЛАРДА ҲУЖЖАТ ТАЛАБИ ЭСЛАТИЛДИ ---
 
 @dp.message(StudentForm.waiting_for_firstname)
 async def process_firstname(message: Message, state: FSMContext):
     await state.update_data(first_name=message.text)
-    await message.answer("Ўқувчининг ФАМИЛИЯСИНИ киритинг:")
+    await message.answer("Ўқувчининг ФАМИЛИЯСИНИ киритинг (ҳужжатдагидек):")
     await state.set_state(StudentForm.waiting_for_lastname)
 
 @dp.message(StudentForm.waiting_for_lastname)
 async def process_lastname(message: Message, state: FSMContext):
     await state.update_data(last_name=message.text)
-    await message.answer("Ўқувчининг ОТАСИНИНГ ИСМИНИ киритинг:")
+    await message.answer("Ўқувчининг ОТАСИНИНГ ИСМИНИ киритинг (ҳужжатдагидек):")
     await state.set_state(StudentForm.waiting_for_middlename)
 
 @dp.message(StudentForm.waiting_for_middlename)
 async def process_middlename(message: Message, state: FSMContext):
     await state.update_data(middle_name=message.text)
-    await message.answer("Тўғилган куни, ойи ва йилини киритинг (Мас: 15.08.2012):")
+    await message.answer("Тўғилган куни, ойи ва йилини киритинг (гувоҳномадагидек, мас: 15.08.2012):")
     await state.set_state(StudentForm.waiting_for_birthdate)
 
 @dp.message(StudentForm.waiting_for_birthdate)
 async def process_birthdate(message: Message, state: FSMContext):
     await state.update_data(birth_date=message.text)
-    await message.answer("Гувоҳнома (метрика) серияси ва рақамини киритинг:")
+    await message.answer("Туг`илганлик ҳақида гувоҳнома (метрика) серияси ва рақамини аниқ ёзинг:")
     await state.set_state(StudentForm.waiting_for_certificate)
 
 @dp.message(StudentForm.waiting_for_certificate)
 async def process_certificate(message: Message, state: FSMContext):
     await state.update_data(birth_certificate=message.text)
-    await message.answer("Агар паспорти (ID картаси) бўлса, серия ва рақамини ёзинг (Бўлмаса 'Йўқ' деб ёзинг):")
+    await message.answer("Агар паспорти (ИД-картаси) бўлса, серия ва рақамини ёзинг (Бўлмаса 'Йўқ' деб ёзинг):")
     await state.set_state(StudentForm.waiting_for_passport)
 
 @dp.message(StudentForm.waiting_for_passport)
 async def process_passport(message: Message, state: FSMContext):
     await state.update_data(passport=message.text)
-    await message.answer("Ўқувчи ёки ота-онанинг ЖШШИР (14 хонали ПИНФЛ) кодини киритинг:")
+    await message.answer("Ўқувчи ёки ота-онанинг ЖШШИР (паспорт пастидаги 14 хонали ПИНФЛ) кодини аниқ киритинг:")
     await state.set_state(StudentForm.waiting_for_pinfl)
 
 @dp.message(StudentForm.waiting_for_pinfl)
 async def process_pinfl(message: Message, state: FSMContext):
-    if len(message.text.replace(" ", "")) < 7: # Оддий текширув
-        await message.answer("Илтимос, кодни тўғри киритинг:")
+    clean_text = message.text.replace(" ", "")
+    if len(clean_text) < 7:
+        await message.answer("Илтимос, ЖШШИР кодини тўғри киритинг:")
         return
-    await state.update_data(pinfl=message.text.replace(" ", ""))
-    await message.answer("Боғланиш учун телефон рақамини киритинг (Мас: +998901234567):")
+    await state.update_data(pinfl=clean_text)
+    await message.answer("Алоқа учун ишлайдиган телефон рақамини киритинг (Мас: +998901234567):")
     await state.set_state(StudentForm.waiting_for_phone)
 
 @dp.message(StudentForm.waiting_for_phone)
@@ -161,25 +167,25 @@ async def process_gender(message: Message, state: FSMContext):
         await message.answer("Илтимос, қуйидаги тугмалардан бирини танланг:", reply_markup=get_gender_keyboard())
         return
     await state.update_data(gender=message.text)
-    await message.answer("Тўлиқ яшаш манзилини киритинг (Вилоят, туман, маҳалла, кўча, уй):", reply_markup=get_cancel_keyboard())
+    await message.answer("Паспортдаги рўйхатда турган (прописка) тўлиқ манзилини киритинг:", reply_markup=get_cancel_keyboard())
     await state.set_state(StudentForm.waiting_for_address)
 
 @dp.message(StudentForm.waiting_for_address)
 async def process_address(message: Message, state: FSMContext):
     await state.update_data(address=message.text)
-    await message.answer("Отасининг исми, фамилияси ва шарифини киритинг:")
+    await message.answer("Отасининг тўлиқ исми, фамилияси ва шарифини киритинг (паспортдагидек):")
     await state.set_state(StudentForm.waiting_for_father)
 
 @dp.message(StudentForm.waiting_for_father)
 async def process_father(message: Message, state: FSMContext):
     await state.update_data(father_name=message.text)
-    await message.answer("Онасининг исми, фамилияси ва шарифини киритинг:")
+    await message.answer("Онасининг тўлиқ исми, фамилияси ва шарифини киритинг (паспортдагидек):")
     await state.set_state(StudentForm.waiting_for_mother)
 
 @dp.message(StudentForm.waiting_for_mother)
 async def process_mother(message: Message, state: FSMContext):
     await state.update_data(mother_name=message.text)
-    await message.answer("Ота-онасининг иш жойи ва лавозимини киритинг (Мас: Мактабда ўқитувчи, тадбиркор ва ҳ.к.):")
+    await message.answer("Ота-онасининг расмий иш жойи ва лавозимини киритинг (Мас: 4-мактабда ўқитувчи, нафақада, вақтинча ишсиз ва ҳ.к.):")
     await state.set_state(StudentForm.waiting_for_work)
 
 @dp.message(StudentForm.waiting_for_work)
@@ -191,21 +197,27 @@ async def process_work(message: Message, state: FSMContext):
     existing_student = db.get_student(user_id)
     if existing_student:
         db.update_student(user_id, user_data)
-        await message.answer("✅ Маълумотларингиз муваффақиятли янгиланди (таҳрирланди)!", reply_markup=get_edit_keyboard())
+        await message.answer("✅ Маълумотларингиз ҳужжат асосида муваффақиятли янгиланди!", reply_markup=get_edit_keyboard())
     else:
         db.save_student(user_id, user_data)
-        await message.answer("🎉 Раҳмат! Маълумотларингиз қабул қилинди ва базага хавфсиз сақланди.", reply_markup=get_edit_keyboard())
+        await message.answer("🎉 Раҳмат! Маълумотларингиз ҳужжат аслидек қабул қилинди ва базага хавфсиз сақланди.", reply_markup=get_edit_keyboard())
         
     await state.clear()
 
-# --- АДМИН УЧУН ЭКСПОРТ БУЙРУҒИ ---
+# --- АДМИН УЧУН ЭКСПОРТ БУЙРУҚИ ---
 @dp.message(Command("download_base"))
 async def admin_download_base(message: Message):
-    # Хавфсизлик учун буйруқни фақат сиз (админ) ишлата оладиган қилиш мумкин
+    # ХАВФСИЗЛИК ЧЕКЛОВИ: Ўз ID рақамингизни шу ерга ёзинг (Мас: ADMIN_ID = 512345678)
+    ADMIN_ID = 123456789  
+    
+    if message.from_user.id != ADMIN_ID and ADMIN_ID != 123456789:
+        await message.answer("❌ Бу буйруқ фақат тизим администратори учун очиқ!")
+        return
+
     file_name = excel.export_students_to_excel()
     try:
         excel_file = FSInputFile(file_name, filename="Oquvchilar_Умумий_Базаси.csv")
-        await message.answer_document(excel_file, caption="📊 Жадвал тайёр! Барча ўқувчилар рўйхати тўлиқ мана шу Excel файлида жойлашган.")
+        await message.answer_document(excel_file, caption="📊 Жадвал тайёр! Барча ўқувчилар рўйхати ҳужжат асосида Excel файлида жойлашган.")
     except Exception as e:
         await message.answer(f"Хатолик юз берди: {e}")
     finally:
