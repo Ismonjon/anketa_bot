@@ -12,7 +12,7 @@ import database as db
 import excel_generator as excel
 
 TOKEN = "8954404679:AAGcHlXHntPNQuz3Y0-taekMrMJlGvBWQ_g"
-ADMIN_ID = 123456789  # <--- Бу ерга ўз ТЕЛЕГРАМ ID рақамингизни ёзинг!
+ADMIN_ID = 558465235  # <--- Бу ерга ўз ТЕЛЕГРАМ ID рақамингизни ёзинг!
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
