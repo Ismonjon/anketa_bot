@@ -11,7 +11,7 @@ from aiohttp import web
 import database as db
 import excel_generator as excel
 
-TOKEN = "8854465955:AAH_your_real_token_here"
+TOKEN = "8954404679:AAGcHlXHntPNQuz3Y0-taekMrMJlGvBWQ_g"
 ADMIN_ID = 123456789  # <--- Бу ерга ўз ТЕЛЕГРАМ ID рақамингизни ёзинг!
 
 bot = Bot(token=TOKEN)
