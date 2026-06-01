@@ -8,8 +8,8 @@ def init_db():
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS questions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            field_name TEXT NOT NULL,  # Саволнинг қисқа номи (устун учун)
-            question_text TEXT NOT NULL # Ота-онага бериладиган тўлиқ савол матни
+            field_name TEXT NOT NULL,
+            question_text TEXT NOT NULL
         )
     """)
     
@@ -33,7 +33,6 @@ def init_db():
         )
     """)
     
-    # Агар база янги бўлса, сиз айтган мажбурий 13 та асосий саволни автоматик киритамиз
     cursor.execute("SELECT COUNT(*) FROM questions")
     if cursor.fetchone()[0] == 0:
         default_questions = [
@@ -74,9 +73,7 @@ def add_new_question(field_name, question_text):
 def save_answer(user_id, question_id, value):
     conn = sqlite3.connect("flexible_students.db")
     cursor = conn.cursor()
-    # Ўқувчини рўйхатга қўшиш (агар йўқ бўлса)
     cursor.execute("INSERT OR IGNORE INTO students (user_id) VALUES (?)", (user_id,))
-    # Жавобни ёзиш ёки янгилаш (Таҳрирланганда эскисини устига ёзади)
     cursor.execute("""
         INSERT OR REPLACE INTO answers (user_id, question_id, answer_value) 
         VALUES (?, ?, ?)
