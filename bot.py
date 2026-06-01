@@ -103,3 +103,92 @@ async def show_my_data(message: Message):
         await message.answer(info, parse_mode="Markdown")
     else:
         await message.answer("Сиз ҳали маълумот киритмагансиз. /start буйруғи орқали тўлдиринг.")
+
+@dp.message(SurveyStates.answering)
+async def handle_answer(message: Message, state: FSMContext):
+    if message.text in ["❌ Бекор қилиш", "📝 Маълумотларни таҳрирлаш", "📋 Менинг маълумотларим"]:
+        return
+        
+    data = await state.get_data()
+    idx = data.get('current_q_index', 0)
+    q_list = data.get('questions_list', [])
+    user_id = message.from_user.id
+    
+    if not q_list:
+        await state.clear()
+        return
+
+    q_id, field_name, _ = q_list[idx]
+    db.save_answer(user_id, q_id, message.text)
+    
+    next_idx = idx + 1
+    if next_idx < len(q_list):
+        await state.update_data(current_q_index=next_idx)
+        await message.answer(f"📋 Кейинги савол:\n{q_list[next_idx][2]}")
+    else:
+        await state.clear()
+        await message.answer("🎉 Раҳмат! Барча маълумотларингиз ҳужжат аслидек қабул қилинди ва базага сақланди.", reply_markup=get_main_keyboard(True))
+
+# ================= АДМИН БУЙРУҚЛАРИ =================
+
+@dp.message(Command("download_base"))
+async def admin_download_base(message: Message):
+    if message.from_user.id != ADMIN_ID:
+        await message.answer("❌ Бу буйруқ фақат тизим администратори учун очиқ!")
+        return
+
+    file_name = excel.export_students_to_excel()
+    try:
+        excel_file = FSInputFile(file_name, filename="Oquvchilar_Umuniy_Bazasi.csv")
+        await message.answer_document(excel_file, caption="📊 База тайёр! Янги қўшилган майдонлар ҳам Excel устунларига автоматик жойлашган.")
+    except Exception as e:
+        await message.answer(f"Хатолик юз берди: {e}")
+    finally:
+        if os.path.exists(file_name):
+            os.remove(file_name)
+
+@dp.message(Command("add_field"))
+async def admin_add_field(message: Message, state: FSMContext):
+    if message.from_user.id != ADMIN_ID:
+        await message.answer("❌ Бу буйруқ фақат тизим администратори учун очиқ!")
+        return
+    
+    await state.clear()
+    await message.answer("🆕 Янги майдон қўшиш бошланди.\n\nАввал Excel жадвалида устун номи қандай бўлишини ёзинг (Мас: Тўгарак, Касаллиги, Чет тили):")
+    await state.set_state(AdminStates.waiting_for_column_name)
+
+@dp.message(AdminStates.waiting_for_column_name)
+async def admin_get_col_name(message: Message, state: FSMContext):
+    await state.update_data(new_col=message.text)
+    await message.answer("Энди ота-онага бериладиган тўлиқ савол матнини ёзинг (Мас: Ўқувчи дарсдан ташқари қайси тўгаракларга қатнашади?):")
+    await state.set_state(AdminStates.waiting_for_full_question)
+
+@dp.message(AdminStates.waiting_for_full_question)
+async def admin_get_full_question(message: Message, state: FSMContext):
+    data = await state.get_data()
+    col_name = data['new_col']
+    question_text = message.text
+    
+    db.add_new_question(col_name, question_text)
+    await state.clear()
+    
+    user_id = message.from_user.id
+    is_filled = db.check_student_filled(user_id)
+    await message.answer(
+        f"✅ Муваффақиятли қўшилди!\n\n📌 Excel устун номи: {col_name}\n❓ Савол матни: {question_text}\n\nЭнди янги кирган ота-оналардан бу савол ҳам автоматик равишда сўралади.",
+        reply_markup=get_main_keyboard(is_filled)
+    )
+
+# ================= RENDER PORT СОЗЛАМАСИ =================
+async def handle(request):
+    return web.Response(text="Бот Render серверида хатосиз ишлаяпти!")
+
+async def main():
+    db.init_db()
+    
+    app = web.Application()
+    app.router.add_get('/', handle)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    
+    port = int(os.environ
