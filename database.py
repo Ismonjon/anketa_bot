@@ -1,82 +1,116 @@
 import sqlite3
 
 def init_db():
-    conn = sqlite3.connect("students_base.db")
+    conn = sqlite3.connect("flexible_students.db")
     cursor = conn.cursor()
-    # user_id UNIQUE қилинди - бу тизимда бир киши 2 марта рўйхатдан ўтишини тўлиқ чеклайди
+    
+    # 1. Администратор қўшган динамик саволлар жадвали
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS questions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            field_name TEXT NOT NULL,  # Саволнинг қисқа номи (устун учун)
+            question_text TEXT NOT NULL # Ота-онага бериладиган тўлиқ савол матни
+        )
+    """)
+    
+    # 2. Фойдаланувчилар (Ўқувчилар) жадвали
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS students (
             user_id INTEGER PRIMARY KEY,
-            first_name TEXT,
-            last_name TEXT,
-            middle_name TEXT,
-            birth_date TEXT,
-            birth_certificate TEXT,
-            passport TEXT,
-            pinfl TEXT,
-            phone TEXT,
-            gender TEXT,
-            address TEXT,
-            father_name TEXT,
-            mother_name TEXT,
-            parents_work TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
+    
+    # 3. Ота-оналар берган жавоблар жадвали
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS answers (
+            user_id INTEGER,
+            question_id INTEGER,
+            answer_value TEXT,
+            PRIMARY KEY (user_id, question_id),
+            FOREIGN KEY (user_id) REFERENCES students(user_id) ON DELETE CASCADE,
+            FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE CASCADE
+        )
+    """)
+    
+    # Агар база янги бўлса, сиз айтган мажбурий 13 та асосий саволни автоматик киритамиз
+    cursor.execute("SELECT COUNT(*) FROM questions")
+    if cursor.fetchone()[0] == 0:
+        default_questions = [
+            ("Исми", "Ўқувчининг ИСМИНИ киритинг (ҳужжатдагидек):"),
+            ("Фамилияси", "Ўқувчининг ФАМИЛИЯСИНИ киритинг (ҳужжатдагидек):"),
+            ("Отасининг исми", "Ўқувчининг ОТАСИНИНГ ИСМИНИ киритинг (ҳужжатдагидек):"),
+            ("Тўғилган санаси", "Тўғилган куни, ойи ва йилини киритинг (гувоҳномадагидек, мас: 15.08.2012):"),
+            ("Метрика рақами", "Туғилганлик ҳақида гувоҳнома (метрика) серияси ва рақамини аниқ ёзинг:"),
+            ("Паспорт маълумоти", "Агар паспорти (ИД-картаси) бўлса, серия ва рақамини ёзинг (Бўлмаса 'Йўқ' деб ёзинг):"),
+            ("ЖШШИР (ПИНФЛ)", "Ўқувчи ёки ота-онанинг ЖШШИР (паспорт пастидаги 14 хонали ПИНФЛ) кодини аниқ киритинг:"),
+            ("Телефон рақами", "Алоқа учун ишлайдиган телефон рақамини киритинг (Мас: +998901234567):"),
+            ("Жинси", "Ўқувчининг жинсини танланг (Ўғил бола / Қиз бола):"),
+            ("Яшаш манзили", "Паспортдаги рўйхатда турган (прописка) тўлиқ манзилини киритинг:"),
+            ("Отасининг И.Ш.", "Отасининг тўлиқ исми, фамилияси ва шарифини киритинг (паспортдагидек):"),
+            ("Онасининг И.Ш.", "Онасининг тўлиқ исми, фамилияси ва шарифини киритинг (паспортдагидек):"),
+            ("Ота-онасининг иш жойи", "Ота-онасининг расмий иш жойи ва лавозимини киритинг:")
+        ]
+        cursor.executemany("INSERT INTO questions (field_name, question_text) VALUES (?, ?)", default_questions)
+        conn.commit()
+        
+    conn.close()
+
+def get_all_questions():
+    conn = sqlite3.connect("flexible_students.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, field_name, question_text FROM questions ORDER BY id ASC")
+    cols = cursor.fetchall()
+    conn.close()
+    return cols
+
+def add_new_question(field_name, question_text):
+    conn = sqlite3.connect("flexible_students.db")
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO questions (field_name, question_text) VALUES (?, ?)", (field_name, question_text))
     conn.commit()
     conn.close()
 
-def get_student(user_id):
-    conn = sqlite3.connect("students_base.db")
+def save_answer(user_id, question_id, value):
+    conn = sqlite3.connect("flexible_students.db")
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM students WHERE user_id = ?", (user_id,))
-    row = cursor.fetchone()
+    # Ўқувчини рўйхатга қўшиш (агар йўқ бўлса)
+    cursor.execute("INSERT OR IGNORE INTO students (user_id) VALUES (?)", (user_id,))
+    # Жавобни ёзиш ёки янгилаш (Таҳрирланганда эскисини устига ёзади)
+    cursor.execute("""
+        INSERT OR REPLACE INTO answers (user_id, question_id, answer_value) 
+        VALUES (?, ?, ?)
+    """, (user_id, question_id, value))
+    conn.commit()
     conn.close()
-    return row
 
-def save_student(user_id, data):
-    conn = sqlite3.connect("students_base.db")
+def check_student_filled(user_id):
+    conn = sqlite3.connect("flexible_students.db")
     cursor = conn.cursor()
-    try:
-        cursor.execute("""
-            INSERT INTO students (
-                user_id, first_name, last_name, middle_name, birth_date, 
-                birth_certificate, passport, pinfl, phone, gender, 
-                address, father_name, mother_name, parents_work
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            user_id, data['first_name'], data['last_name'], data['middle_name'], data['birth_date'],
-            data['birth_certificate'], data['passport'], data['pinfl'], data['phone'], data['gender'],
-            data['address'], data['father_name'], data['mother_name'], data['parents_work']
-        ))
-        conn.commit()
-        success = True
-    except sqlite3.IntegrityError:
-        success = False  # Агар фойдаланувчи аллақачон мавжуд бўлса
+    cursor.execute("SELECT COUNT(*) FROM answers WHERE user_id = ?", (user_id,))
+    answered_count = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM questions")
+    total_questions = cursor.fetchone()[0]
     conn.close()
-    return success
+    return answered_count >= total_questions if total_questions > 0 else False
 
-def update_student(user_id, data):
-    conn = sqlite3.connect("students_base.db")
+def get_student_answers(user_id):
+    conn = sqlite3.connect("flexible_students.db")
     cursor = conn.cursor()
     cursor.execute("""
-        UPDATE students SET 
-            first_name = ?, last_name = ?, middle_name = ?, birth_date = ?, 
-            birth_certificate = ?, passport = ?, pinfl = ?, phone = ?, gender = ?, 
-            address = ?, father_name = ?, mother_name = ?, parents_work = ?
-        WHERE user_id = ?
-    """, (
-        data['first_name'], data['last_name'], data['middle_name'], data['birth_date'],
-        data['birth_certificate'], data['passport'], data['pinfl'], data['phone'], data['gender'],
-        data['address'], data['father_name'], data['mother_name'], data['parents_work'], user_id
-    ))
-    conn.commit()
-    conn.close()
-
-def get_all_students():
-    conn = sqlite3.connect("students_base.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM students ORDER BY created_at ASC")
+        SELECT q.field_name, a.answer_value 
+        FROM questions q
+        LEFT JOIN answers a ON q.id = a.question_id AND a.user_id = ?
+        ORDER BY q.id ASC
+    """, (user_id,))
     rows = cursor.fetchall()
     conn.close()
     return rows
+
+def clear_student_answers(user_id):
+    conn = sqlite3.connect("flexible_students.db")
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM answers WHERE user_id = ?", (user_id,))
+    conn.commit()
+    conn.close()
