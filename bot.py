@@ -13,8 +13,9 @@ import excel_generator as excel
 
 # ⚠️ БУ ЕРГА БОТФАТҲЕРДАН ОЛГАН ҲАҚИҚИЙ ТОКЕНИНГИЗНИ ЁЗИНГ
 TOKEN = "8954404679:AAGcHlXHntPNQuz3Y0-taekMrMJlGvBWQ_g"
+
 # ⚠️ БУ ЕРГА ШАХСИЙ ТЕЛЕГРАМ ID РАҚАМИНГИЗНИ ЁЗИНГ (Қўштирноқсиз)
-ADMIN_ID = 558465235  # <--- Бу ерга ўз ТЕЛЕГРАМ ID рақамингизни ёзинг!
+ADMIN_ID = 558465235  
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
@@ -191,4 +192,14 @@ async def main():
     runner = web.AppRunner(app)
     await runner.setup()
     
-    port = int(os.environ
+    port = int(os.environ.get("PORT", 10000))
+    site = web.TCPSite(runner, '0.0.0.0', port)
+    asyncio.create_task(site.start())
+    
+    print(f"Веб-сервер {port}-портда ишга тушди.")
+    await dp.start_polling(bot, close_bot_session=True)
+
+if __name__ == "__main__":
+    if sys.platform == 'win32':
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    asyncio.run(main())
