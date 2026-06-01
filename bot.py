@@ -102,5 +102,4 @@ async def show_my_data(message: Message):
             info += f"📌 **{field}:** {val or 'Киритилмаган'}\n"
         await message.answer(info, parse_mode="Markdown")
     else:
-        await message.answer("Сиз ҳали маъ
-
+        await message.answer("Сиз ҳали маълумот киритмагансиз. /start буйруғи орқали тўлдиринг.")
