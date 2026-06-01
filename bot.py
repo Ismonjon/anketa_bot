@@ -11,13 +11,17 @@ from aiohttp import web
 import database as db
 import excel_generator as excel
 
+# ⚠️ БУ ЕРГА БОТФАТҲЕРДАН ОЛГАН ҲАҚИҚИЙ ТОКЕНИНГИЗНИ ЁЗИНГ
 TOKEN = "8954404679:AAGcHlXHntPNQuz3Y0-taekMrMJlGvBWQ_g"
 ADMIN_ID = 558465235  # <--- Бу ерга ўз ТЕЛЕГРАМ ID рақамингизни ёзинг!
+
+# ⚠️ БУ ЕРГА ОЛДИНГИ ҚАДАМДА БОТДАН ОЛГАН ШАХСИЙ ТЕЛЕГРАМ ID РАҚАМИНГИЗНИ ЁЗИНГ (Қўштирноқсиз)
+ADMIN_ID = 558465235  # <--- Бу ерга ўз ТЕЛЕГРАМ ID рақамингизни ёзинг!
+
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# Сўровнома ва Администратор ҳолатлари
 class SurveyStates(StatesGroup):
     answering = State()
 
@@ -63,7 +67,7 @@ async def cancel_survey(message: Message, state: FSMContext):
 @dp.message(F.text == "📝 Маълумотларни таҳрирлаш")
 async def edit_survey(message: Message, state: FSMContext):
     user_id = message.from_user.id
-    db.clear_student_answers(user_id) # Эски жавоблари тозаланади ва бошидан бошланади
+    db.clear_student_answers(user_id)
     questions = db.get_all_questions()
     
     await message.answer(
@@ -83,7 +87,6 @@ async def show_my_data(message: Message):
             info += f"📌 **{field}:** {val or 'Киритилмаган'}\n"
         await message.answer(info, parse_mode="Markdown")
 
-# Динамик равишда жавобларни қабул қилиш
 @dp.message(SurveyStates.answering)
 async def handle_answer(message: Message, state: FSMContext):
     if message.text == "❌ Бекор қилиш":
@@ -94,23 +97,19 @@ async def handle_answer(message: Message, state: FSMContext):
     q_list = data['questions_list']
     user_id = message.from_user.id
     
-    # Жорий саволни оламиз ва жавобни базага сақлаймиз
     q_id, field_name, _ = q_list[idx]
     db.save_answer(user_id, q_id, message.text)
     
     next_idx = idx + 1
     if next_idx < len(q_list):
-        # Кейинги саволни берамиз
         await state.update_data(current_q_index=next_idx)
         await message.answer(f"📋 Кейинги савол:\n{q_list[next_idx][2]}")
     else:
-        # Ҳамма савол тугади
         await state.clear()
         await message.answer("🎉 Раҳмат! Барча маълумотларингиз ҳужжат аслидек қабул қилинди ва базага сақланди.", reply_markup=get_main_keyboard(True))
 
 # ================= АДМИН БУЙРУҚЛАРИ =================
 
-# 1. Базани юклаб олиш
 @dp.message(Command("download_base"))
 async def admin_download_base(message: Message):
     if message.from_user.id != ADMIN_ID:
@@ -127,11 +126,10 @@ async def admin_download_base(message: Message):
         if os.path.exists(file_name):
             os.remove(file_name)
 
-# 2. Янги майдон (савол) қўшиш буйруқи
 @dp.message(Command("add_field"))
 async def admin_add_field(message: Message, state: FSMContext):
     if message.from_user.id != ADMIN_ID:
-        await message.answer("❌ Бу буidруқ фақат тизим администратори учун очиқ!")
+        await message.answer("❌ Бу буйруқ фақат тизим администратори учун очиқ!")
         return
         
     await message.answer("🆕 Янги майдон қўшиш бошланди.\n\nАввал Excel жадвалида устун номи қандай бўлишини ёзинг (Мас: Тўгарак, Касаллиги, Чет тили):")
@@ -153,16 +151,25 @@ async def admin_get_full_question(message: Message, state: FSMContext):
     await state.clear()
     await message.answer(f"✅ Муваффақиятли қўшилди!\n\n📌 Excel устун номи: {col_name}\n❓ Савол матни: {question_text}\n\nЭнди янги кирган ота-оналардан бу савол ҳам автоматик равишда сўралади.")
 
+# ================= RENDER PORT СОЗЛАМАСИ (МУҲИМ ЖОЙИ) =================
+async def handle(request):
+    return web.Response(text="Бот Render серверида хатосиз ишлаяпти!")
+
 async def main():
     db.init_db()
-    async def handle(request):
-        return web.Response(text="Dynamic Students DB Bot is running perfectly!")
+    
+    # Ички веб-серверни порт билан созлаш
     app = web.Application()
     app.router.add_get('/', handle)
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, '0.0.0.0', int(os.environ.get("PORT", 10000)))
+    
+    # Render берган портни автоматик ўқиб олади (агар бўлмаса 10000 порт)
+    port = int(os.environ.get("PORT", 10000))
+    site = web.TCPSite(runner, '0.0.0.0', port)
     asyncio.create_task(site.start())
+    
+    print(f"Веб-сервер {port}-портда ишга тушди.")
     await dp.start_polling(bot, close_bot_session=True)
 
 if __name__ == "__main__":
